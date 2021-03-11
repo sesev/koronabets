@@ -287,8 +287,6 @@ function tarkistaTulokset() {
               }
             })
             .sort((first, second) => first.difference - second.difference)
-          console.log(bestBets[0])
-          console.log(erotus)
           let reply = ''
           bestBets.forEach(v => {
             reply = reply + v.name + ': ' + v.veikkaus + ' +/– ' + v.difference +'\n'
@@ -363,8 +361,6 @@ function tarkistaTulokset() {
                 }
               })
               .sort((first, second) => first.difference - second.difference)
-            console.log(bestBets[0])
-            console.log(erotus)
             let reply = ''
             bestBets.forEach(v => {
               reply = reply + v.name + ': ' + v.veikkaus + ' +/– ' + v.difference +'\n'
@@ -429,7 +425,6 @@ bot.command('tart', (ctx) => {
       const puhdistettu3 = puhdistettu2.replace(/\u25aa/g, '')
       const puhdistettu = puhdistettu3.split(' ')
       ctx.reply(`Uusia tartuntoja tänään: ${puhdistettu[10]}\nVeikkauksen voittaja: `)
-      console.log('Uusia tartuntoja tänään: ' + puhdistettu[10])
       var d = new Date()
 
       var date = d.getDate()
@@ -446,14 +441,12 @@ bot.command('tart', (ctx) => {
 //käyttäjän veikkaus
 bot.command('veikkaukseni', (ctx) => {
   const id = ctx.from.id
-  console.log(ctx.from.id)
   Veikkaus.find({ telegramId: id }, function (err, kayttaja) {
     if (err) {
       console.log(err)
     } else {
 
       //ctx.reply(veikkaukset[veikkaukset.length - 1])
-      console.log(getMostRecentVeikkaus(kayttaja[0]))
       const v = getMostRecentVeikkaus(kayttaja[0])
       ctx.reply(`Veikkauksesi tälle päivälle on: ${v.veikkaus}`)
     }
@@ -513,7 +506,6 @@ bot.command('oulu', (ctx) => {
             if (err) {
               return console.error(err)
             } else {
-              console.log(ouludoc)
               ctx.reply(`${first_name}, olet jo veikannut Oulun tartuntoja tänään, joten veikkauksesi päivitetään: ${msg} uutta tartuntaa Oulussa.`)
             }
           })
@@ -529,7 +521,6 @@ bot.command('oulu', (ctx) => {
             if (err) {
               return console.error(err)
             } else {
-              console.log(ouludoc)
               ctx.reply(`${first_name}, onnea Oulu-veikkaukseen! Osallistuit veikkaamalla ${msg} uutta tartuntaa.`)
             }
           })
@@ -541,7 +532,6 @@ bot.command('oulu', (ctx) => {
           if (err) {
             return console.error(err)
           } else {
-            console.log(doc)
             ctx.reply(`${first_name}, onnea Oulu-veikkaukseen! Osallistuit veikkaamalla ${msg} uutta tartuntaa.`)
           }
         })
@@ -573,7 +563,6 @@ bot.command('korona', (ctx) => {
     else {
       const filter = { telegramId: telegramId }
       if (await Veikkaus.exists(filter)) { // telegramId löytyy kannasta
-        console.log('vanha veikkaaja')
         let doc = await Veikkaus.findOne(filter)
 
 
@@ -584,9 +573,6 @@ bot.command('korona', (ctx) => {
           }
         })
 
-        console.log('uusin', uusin)
-        console.log('tanaan', tanaan)
-        console.log('uusin === tanaan', datesMatch(uusin, tanaan))
         if (datesMatch(uusin, tanaan)) {
           console.log('päivitetään käyttäjän tämänpäiväinen veikkaus')
 
@@ -600,12 +586,10 @@ bot.command('korona', (ctx) => {
             if (err) {
               return console.error(err)
             } else {
-              console.log(doc)
               ctx.reply(`${first_name}, olet jo veikannut tänään, joten veikkauksesi päivitetään: ${msg} uutta tartuntaa.`)
             }
           })
         } else {
-          console.log('lisätään käyttäjälle uusi veikkaus')
           const update = {
             name: first_name,
             veikkaukset: [...doc.veikkaukset, { veikkaus: msg, date: now }]
@@ -616,7 +600,6 @@ bot.command('korona', (ctx) => {
             if (err) {
               return console.error(err)
             } else {
-              console.log(doc)
               ctx.reply(`${first_name}, onnea veikkaukseen! Osallistuit veikkaamalla ${msg} uutta tartuntaa.`)
             }
           })
@@ -628,7 +611,6 @@ bot.command('korona', (ctx) => {
           if (err) {
             return console.error(err)
           } else {
-            console.log(doc)
             ctx.reply(`${first_name}, onnea veikkaukseen! Osallistuit veikkaamalla ${msg} uutta tartuntaa.`)
           }
         })
