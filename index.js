@@ -1,4 +1,3 @@
-//Load necessary modules
 const Telegraf = require('telegraf')
 const session = require('telegraf/session')
 const config = require('./utils/config')
@@ -6,17 +5,15 @@ const mongoose = require('mongoose')
 const fs = require('fs')
 const needle = require('needle')
 const CronJob = require('cron').CronJob
-const { waitForDebugger } = require('inspector')
 
 
 
 
 const bot = new Telegraf(config.BOT_TOKEN)
 
-//Connect to MongoDB
+//mongodb yhteys
 mongoose.connect(config.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true, useFindAndModify: false, useCreateIndex: true })
 
-// Creating schemas for the database entrys
 const veikkausSchema = new mongoose.Schema({
   telegramId: { type: String, required: true },
   name: { type: String, required: true },
@@ -45,7 +42,7 @@ const ouluTartunnatSchema = new mongoose.Schema({
 })
 const OuluTartunnat = mongoose.model('OuluTartunnat', ouluTartunnatSchema)
 
-//Starting the telegraf bot connection to Telegram API
+//alustetaan botti käyttöön ja session middleware käyttöön
 
 bot.use(session())
 
@@ -57,29 +54,27 @@ bot.use((ctx, next) => {
     console.log('response time %sms', ms)
   })
 })
-
-
-//Fetch the new infections from THL API starting from 11:30 AM every minute until new infections found.
 var job = new CronJob('0 30/1 11 * * *', function () {
   haeTulokset()
   thlTulokset()
 }, null, true, 'Europe/Helsinki')
 job.start()
 
-//Remind the group chat users to make a bet once every day at 7 AM.
-var reminder = new CronJob('0 0 7 * * *', function () {
-  remindToBet()
+
+var kutittaa = new CronJob('0 0 7 * * *', function () {
+  pallejaKutittaa()
+  hesesaa()
+  oulusaa()
 }, null, true, 'Europe/Helsinki')
-reminder.start()
+kutittaa.start()
 
 
 
-// The actual function to send the reminder to group chat.
-function remindToBet() {
+
+function pallejaKutittaa() {
   bot.telegram.sendMessage(config.lorocrewId, 'Muistakaa veikata! Esim. /korona 666 ja/tai /oulu 12')
 }
 
-// Function to fetch infections in Oulu from THL API.
 function thlTulokset() {
   const thlUrlOulu = 'https://sampo.thl.fi/pivot/prod/fi/epirapo/covid19case/fact_epirapo_covid19case.json?row=hcdmunicipality2020-445234.&column=dateweek20200101-509030&filter=measure-444833'
   async function getRequest() {
@@ -137,7 +132,7 @@ function thlTulokset() {
 
   })()
 }
-//Fetching the amount of total new infections from THL API.
+//haetaan THL rajapinnasta kumulatiivinen tartuntaluku
 function haeTulokset() {
   const apiurl = 'https://sampo.thl.fi/pivot/prod/fi/epirapo/covid19case/fact_epirapo_covid19case.json?row=hcdmunicipality2020-445222&column=dateweek20200101-509030&filter=measure-444833'
   async function getRequest() {
@@ -194,190 +189,12 @@ function haeTulokset() {
   })()
 }
 
-function haesaa() {
-
-  var url = 'https://pfa.foreca.com/api/v1/forecast/daily/100658225';
-  var params = {
-      "user" : ""
-  
-  }
-  var nytsaa=  'https://pfa.foreca.com/api/v1/current/100658225'
-  var header = {
-         headers: {
-          'Authorization': "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOlwvXC9wZmEuZm9yZWNhLmNvbVwvYXV0aG9yaXplXC90b2tlbiIsImlhdCI6MTYxNzI3MTA5NywiZXhwIjoxNjE3ODc1ODk3LCJuYmYiOjE2MTcyNzEwOTcsImp0aSI6Ijk3OWY1YTY4Y2QxOTA2ZTgiLCJzdWIiOiJ6ZXZlejkwIiwiZm10IjoiWERjT2hqQzQwK0FMamxZVHRqYk9pQT09In0.PjSvEF0GYfGPbgnZdJnqQKcUIEzPoi1hoA_51vD9jjo"
-      }
-  }
-    async function foreca() {
-  
-      const saatiedot = await needle('get', url, params, header) 
-      const nyttiedot = await needle('get', nytsaa, params, header) 
-      var d = new Date()
-      var date = d.getDate()
-      var month = d.getMonth() + 1
-      var year = d.getFullYear()
-      var palli
-      var tuulisuunta
-
-      var dateStr = date + '.' + month + '.' + year
-     if (nyttiedot.body && saatiedot.body) {
-       // console.log(saatiedot.body.forecast[0])
-        console.log(nyttiedot.body)
-        console.log(saatiedot.body)
-        if (nyttiedot.body.current.windDirString == 'N') {
-           console.log('pohjoistuuli')
-        }
-       else if (nyttiedot.body.current.windDirString == 'NE') {
-         console.log('koillistuuli')
-      }
-      else if (nyttiedot.body.current.windDirString == 'E') {
-       console.log('itätuuli')
-    }
-    else if (nyttiedot.body.current.windDirString == 'SE') {
-     console.log('kaakkoistuuli')
-  }
-  else if (nyttiedot.body.current.windDirString == 'S') {
-   console.log('etelätuuli')
-}
-else if (nyttiedot.body.current.windDirString == 'SW') {
- console.log('lounaistuuli')
-}
-else if (nyttiedot.body.current.windDirString == 'W') {
- console.log('länsituuli')
-}
-else if (nyttiedot.body.current.windDirString == 'NW') {
- console.log('luoteistuuli')
-}
-        bot.telegram.sendMessage(config.lorocrewId, `${dateStr} Hesesää:\n\nTämänhetkinen:\nLämpötila: ${nyttiedot.body.current.temperature}°C\nTuntuu kuin: ${nyttiedot.body.current.feelsLikeTemp}°C\nTuuli: ${nyttiedot.body.current.windSpeed}m/s ${nyttiedot.body.current.windDirString} , puuskittain ${nyttiedot.body.current.windGust}m/s\n\nPäiväennuste:\nYlin lämpötila: ${saatiedot.body.forecast[0].maxTemp}\nAlin lämpötila: ${saatiedot.body.forecast[0].minTemp}\nTuuli max: ${saatiedot.body.forecast[0].maxWindSpeed}m/s`)
-console.log(tuulisuunta)
-        return saatiedot.body
-      } else {
-        throw new Error('Unsuccessful request')
-      }
-     /* if (saatiedot.body) {
-        console.log(saatiedot.body.forecast[0])
-        console.log(nyttiedot.body)
-        bot.telegram.sendMessage(config.lorocrewId, `${dateStr} Hesesää:\nTällähetkellä: ${nyttiedot.body.current.temperature}Ylin lämpötila: ${saatiedot.body.forecast[0].maxTemp}\nAlin lämpötila: ${saatiedot.body.forecast[0].minTemp}\nTuuli max: ${saatiedot.body.forecast[0].maxWindSpeed}m/s`)
-
-        return saatiedot.body
-      } else {
-        throw new Error('Unsuccessful request')
-      }
-      console.log(saatiedot)*/
-    }
-    (async () => {
-      var d = new Date()
-      var date = d.getDate()
-      var month = d.getMonth() + 1
-      var year = d.getFullYear()
-      var palli
-      var dateStr = date + '.' + month + '.' + year
-      let hesesaa
-      try {
-        hesesaa = await foreca()
-      } catch (e) {
-        console.log(e)
-      }
-  
-
-  
-    })()
-    //bot.telegram.sendMessage(config.lorocrewId, `${dateStr}\nUusia tartuntoja Oulussa: ${saatiedot.body}\n`)
-
-  }
-
-  bot.command('hese', () => {
-    haesaa()})
-
-/*
-  var url = "https://pfa.foreca.com/api/v1/forecast/daily/100658225";
-  async function getRequest() {
-
-    const res = await needle('get', apiurl)
-
-    if (res.body) {
-      return res.body
-    } else {
-      throw new Error('Unsuccessful request')
-    }
-  }
 
 
-
-
-
-
-  var url = "https://pfa.foreca.com/api/v1/forecast/daily/100658225";
-  var params = {
-      "user" : ""
-  
-  }
-  
-  var header = {
-         headers: {
-          'Authorization': "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOlwvXC9wZmEuZm9yZWNhLmNvbVwvYXV0aG9yaXplXC90b2tlbiIsImlhdCI6MTYxNzI3MTA5NywiZXhwIjoxNjE3ODc1ODk3LCJuYmYiOjE2MTcyNzEwOTcsImp0aSI6Ijk3OWY1YTY4Y2QxOTA2ZTgiLCJzdWIiOiJ6ZXZlejkwIiwiZm10IjoiWERjT2hqQzQwK0FMamxZVHRqYk9pQT09In0.PjSvEF0GYfGPbgnZdJnqQKcUIEzPoi1hoA_51vD9jjo"
-      }
-  }
-  
-  
-  const saatiedot = await needle('get', url, params, header, function (err, resp) {
-    var d = new Date()
-    var date = d.getDate()
-    var month = d.getMonth() + 1
-    var year = d.getFullYear()
-    var palli
-    var dateStr = date + '.' + month + '.' + year
-    //let current = resp.body.current.temperature
-    //let tuuli = resp.body.current.windSpeed
-    //let tuulisuunta = resp.body.current.windDirString
-    //let tuuliselko
-  //  bot.telegram.sendMessage(config.lorocrewId, `${dateStr}\nSää tällä hetkellä hesessä:\nLämpötila: ${current}°C\nTuuli: ${tuuli}m/s ${tuulisuunta}`)
-console.log(resp.body.forecast[0])
-    return palli == resp.body.forecast[0]
-
-  });
-
-console.log(palli)
-})
-/*
-bot.command('hese', () => {
-
-  var url = "https://pfa.foreca.com/api/v1/current/100658225";
-  var params = {
-      "user" : ""
-  
-  }
-  
-  var header = {
-         headers: {
-          'Authorization': "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwOlwvXC9wZmEuZm9yZWNhLmNvbVwvYXV0aG9yaXplXC90b2tlbiIsImlhdCI6MTYxNzI3MTA5NywiZXhwIjoxNjE3ODc1ODk3LCJuYmYiOjE2MTcyNzEwOTcsImp0aSI6Ijk3OWY1YTY4Y2QxOTA2ZTgiLCJzdWIiOiJ6ZXZlejkwIiwiZm10IjoiWERjT2hqQzQwK0FMamxZVHRqYk9pQT09In0.PjSvEF0GYfGPbgnZdJnqQKcUIEzPoi1hoA_51vD9jjo"
-      }
-  }
-  
-  
-  needle.request('get', url, params, header, function (err, resp) {
-    var d = new Date()
-    var date = d.getDate()
-    var month = d.getMonth() + 1
-    var year = d.getFullYear()
-
-    var dateStr = date + '.' + month + '.' + year
-    let current = resp.body.current.temperature
-    let tuuli = resp.body.current.windSpeed
-    let tuulisuunta = resp.body.current.windDirString
-    //let tuuliselko
-    bot.telegram.sendMessage(config.lorocrewId, `${dateStr}\nSää tällä hetkellä hesessä:\nLämpötila: ${current}°C\nTuuli: ${tuuli}m/s ${tuulisuunta}`)
-console.log(resp.body)
-    
-
-  });
-
-})*/
-// Command to call thlTulokset function from Telegram chat.
 bot.command('hae', () => {
   thlTulokset()
 })
 
-// Function to check the results of bets.
 function tarkistaTulokset() {
   Tartunnat.find({}, function (err, data) {
     if (data.length <= 1) {
@@ -416,7 +233,7 @@ function tarkistaTulokset() {
               veikkaus: item.uusin.veikkaus
             }
           })
-// The mathematical process to find the closes estimation of new infections.
+
           const officialCount = erotus
           const bestBets = jaettu
             .map(bet => {
@@ -432,7 +249,7 @@ function tarkistaTulokset() {
 
           })
 
-          bot.telegram.sendMessage(config.lorocrewId, `${dateStr}\nUusia tartuntoja Suomessa: ${erotus}\n\nKokonaistartuntojen tulokset päivälle:\n\n${reply}\n\n${bestBets[0].name} on voittaja ${bestBets[0].veikkaus} uudella tartunnalla Suomessa!\nOnneksi olkoon voittajalle!`)
+          bot.telegram.sendMessage(config.lorocrewId, `${dateStr}\nUusia tartuntoja Suomessa: ${erotus}\n\nKokonaisstartuntojen tulokset päivälle:\n\n${reply}\n\n${bestBets[0].name} on voittaja ${bestBets[0].veikkaus} uudella tartunnalla Suomessa!\nOnneksi olkoon voittajalle!`)
 
         }
       })
@@ -447,11 +264,11 @@ function tarkistaTulokset() {
 
 
   })}
-// Command to check bet results of Oulu infections by calling it's function.
+
   bot.command('otark', () => {
     tarkistaOuluTulokset()
   })
-// Function for checking the results of Oulu bets, same principle as the total infection check up.
+
   function tarkistaOuluTulokset() {
     OuluTartunnat.find({}, function (err, data) {
       if (data.length <= 1) {
@@ -522,7 +339,7 @@ function tarkistaTulokset() {
   
     })}
 
-// Fuinction to list the last estimates from the bet participants.
+
 function veikkaukset() {
   Veikkaus.find({}, function (err, data) {
     if (err) {
@@ -547,13 +364,37 @@ function veikkaukset() {
   })
 }
 
-// Check the results
+
 bot.command('tarkista', () => {
   tarkistaTulokset()
 })
 
+//haetaan tartuntamäärä @bot_fi twiitistä
+bot.command('tart', (ctx) => {
+  fs.readFile('./tartunnat.json', 'utf8', (err, data) => {
+    if (err) {
+      console.log(`Ei pystytty lukemaan: ${err}`)
+    }
+    else {
+      const tartunnat = JSON.parse(data)
+      const puhdistettu2 = tartunnat.renderedContent.replace(/\s/g, ' ')
+      const puhdistettu3 = puhdistettu2.replace(/\u25aa/g, '')
+      const puhdistettu = puhdistettu3.split(' ')
+      ctx.reply(`Uusia tartuntoja tänään: ${puhdistettu[10]}\nVeikkauksen voittaja: `)
+      var d = new Date()
 
-// Command to check the last estimate of the user for them to use in the group chat.
+      var date = d.getDate()
+      var month = d.getMonth() + 1 // Since getMonth() returns month from 0-11 not 1-12
+      var year = d.getFullYear()
+
+      var dateStr = date + '.' + month + '.' + year
+      ctx.reply(dateStr)
+    }
+  })
+})
+
+
+//käyttäjän veikkaus
 bot.command('veikkaukseni', (ctx) => {
   const id = ctx.from.id
   Veikkaus.find({ telegramId: id }, function (err, kayttaja) {
@@ -571,8 +412,6 @@ bot.command('veikkaukseni', (ctx) => {
 bot.command('veikkaukset', () => {
   veikkaukset()
 })
-
-// The command to participate in estimating the new infections in Oulu
 bot.command('oulu', (ctx) => {
   (async () => {
     console.log('\nveikkauskutsu')
@@ -589,7 +428,7 @@ bot.command('oulu', (ctx) => {
       veikkaukset: [{ veikkaus: msg, date: now }]
     })
 
-    if (isNaN(msg) || ouluuusiveikkaus.veikkaukset[0].veikkaus === null || ouluuusiveikkaus.veikkaukset[0].veikkaus >= 10000 || ouluuusiveikkaus.veikkaukset[0].veikkaus <= 0) {
+    if (isNaN(msg) || ouluuusiveikkaus.veikkaukset[0].veikkaus === null || ouluuusiveikkaus.veikkaukset[0].veikkaus >= 10000 || ouluuusiveikkaus.veikkaukset[0].veikkaus < 0) {
       // validointi haara
       ctx.reply('Mita mita sina sanoa, onko pitsasasi jota vikana!?')
     }
@@ -656,8 +495,7 @@ bot.command('oulu', (ctx) => {
     }
   })()
 })
-
-// The command to participate in estimating the new infections in Finland
+//osallistuminen veikkaukseen
 bot.command('korona', (ctx) => {
   (async () => {
     console.log('\nveikkauskutsu')
@@ -674,7 +512,7 @@ bot.command('korona', (ctx) => {
       veikkaukset: [{ veikkaus: msg, date: now }]
     })
 
-    if (isNaN(msg) || uusiveikkaus.veikkaukset[0].veikkaus === null || uusiveikkaus.veikkaukset[0].veikkaus >= 10000 || uusiveikkaus.veikkaukset[0].veikkaus <= 0) {
+    if (isNaN(msg) || uusiveikkaus.veikkaukset[0].veikkaus === null || uusiveikkaus.veikkaukset[0].veikkaus >= 10000 || uusiveikkaus.veikkaukset[0].veikkaus < 0) {
       // validointi haara
       ctx.reply('Mita mita sina sanoa, onko pitsasasi jota vikana!?')
     }
@@ -736,8 +574,6 @@ bot.command('korona', (ctx) => {
     }
   })()
 })
-
-//Functions to handle dates
 
 function datesMatch(a, b) {
   const aDay = new Date(a.getFullYear(), a.getMonth(), a.getDate())
